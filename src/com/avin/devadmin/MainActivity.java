@@ -3,6 +3,8 @@ package com.avin.devadmin;
 import java.util.Date;
 import java.util.List;
 
+import com.avin.mdm.R;
+
 import android.support.v7.app.ActionBarActivity;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;

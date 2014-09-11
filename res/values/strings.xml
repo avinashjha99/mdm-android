@@ -4,5 +4,7 @@
     <string name="app_name">DevAdmin</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="device_admin_instructions">Enterprise Adming App</string>
+    <string name="device_admin_branding">Abc Inc.</string>
 
 </resources>

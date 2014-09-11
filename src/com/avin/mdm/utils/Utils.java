@@ -25,48 +25,11 @@ public class Utils {
 
 	
 	private static final String TAG = "Utils";
-	/**
-	 * Gets the current registration ID for application on GCM service.
-	 * <p>
-	 * If result is empty, the app needs to register.
-	 *
-	 * @return registration ID, or empty string if there is no existing
-	 *         registration ID.
-	 */
-	public static String getRegistrationId(Context context) {
-	    final SharedPreferences prefs = getGCMPreferences(context);
-	    String registrationId = prefs.getString(Prefs.PROPERTY_REG_ID, "");
-	    if (registrationId.isEmpty()) {
-	        Log.i(TAG, "Registration not found.");
-	        return "";
-	    }
-	    // Check if app was updated; if so, it must clear the registration ID
-	    // since the existing regID is not guaranteed to work with the new
-	    // app version.
-	    int registeredVersion = prefs.getInt(Prefs.PROPERTY_APP_VERSION, Integer.MIN_VALUE);
-	    int currentVersion = getAppVersion(context);
-	    if (registeredVersion != currentVersion) {
-	        Log.i(TAG, "App version changed.");
-	        return "";
-	    }
-	    return registrationId;
-	}
-	
-	public static void storeRegistrationId(Context context, String regId){
-		 final SharedPreferences prefs = getGCMPreferences(context);
-		    int appVersion = getAppVersion(context);
-		    Log.i(TAG, "Saving regId on app version " + appVersion);
-		    SharedPreferences.Editor editor = prefs.edit();
-		    editor.putString(Prefs.PROPERTY_REG_ID, regId);
-		    editor.putInt(Prefs.PROPERTY_APP_VERSION, appVersion);
-		    editor.commit();
-		
-	}
-	
+
 	/**
 	 * @return Application's version code from the {@code PackageManager}.
 	 */
-	private static int getAppVersion(Context context) {
+	public static int getAppVersion(Context context) {
 	    try {
 	        PackageInfo packageInfo = context.getPackageManager()
 	                .getPackageInfo(context.getPackageName(), 0);
@@ -76,17 +39,7 @@ public class Utils {
 	        throw new RuntimeException("Could not get package name: " + e);
 	    }
 	}
-	
-	/**
-	 * @return Application's {@code SharedPreferences}.
-	 */
-	public static SharedPreferences getGCMPreferences(Context context) {
-	    // This sample app persists the registration ID in shared preferences, but
-	    // how you store the regID in your app is up to you.
-	    return context.getSharedPreferences(Prefs.PROPERTY_SHARED_PREF,
-	            Context.MODE_PRIVATE);
-	}
-	
+
 	public static List<AppPackage> getAppPackageList(Context context){
 	    	PackageManager pManager= context.getPackageManager();
 	        List<PackageInfo> pacakages=pManager.getInstalledPackages(PackageManager.GET_ACTIVITIES);
