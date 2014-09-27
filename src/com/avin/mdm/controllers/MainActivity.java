@@ -1,5 +1,6 @@
 package com.avin.mdm.controllers;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,12 +11,20 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONObject;
 
 import com.avin.mdm.R;
 import com.avin.mdm.config.Config;
+import com.avin.mdm.config.Prefs;
 import com.avin.mdm.config.URLPatterns;
+import com.avin.mdm.models.Account;
+import com.avin.mdm.models.AppPackage;
+import com.avin.mdm.models.AppPackageRequest;
+import com.avin.mdm.models.CallRecord;
+import com.avin.mdm.models.CallRecordRequest;
 import com.avin.mdm.receivers.MDMDevicePolicyReceiver;
 import com.avin.mdm.utils.CloudMessagingHelper;
 import com.avin.mdm.utils.DevicePolicyManagerHelper;
@@ -24,9 +33,11 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.games.multiplayer.turnbased.TurnBasedMultiplayer.InitiateMatchResult;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
+import com.google.gson.Gson;
 
 
 import android.support.v7.app.ActionBarActivity;
+import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -38,13 +49,14 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends Activity {
 
     private static final String TAG = "Main Activity";
 	private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
@@ -57,8 +69,10 @@ public class MainActivity extends ActionBarActivity {
     
     EditText emailid;
     EditText password;
+    EditText fName;
+    EditText lName;
     String registrationId;
-    Button button,buttonUpdate,lockButton;
+    Button button,buttonUpdate,lockButton,updateAppAnalyticsButton,button_call_analytics;
     DevicePolicyManager mdmPolicyManager;
     
     TextView textReg;
@@ -82,7 +96,12 @@ public class MainActivity extends ActionBarActivity {
     }
 	
 	private void initPolicyManger(){
+		
+		
 		this.mdmPolicyManager= DevicePolicyManagerHelper.getInstance(this);
+		if(!this.mdmPolicyManager.isAdminActive(this.getComponentName())){
+			DevicePolicyManagerHelper.registerDevicePolicyManager(this);
+		}
 	}
 	
 	@Override
@@ -95,6 +114,8 @@ public class MainActivity extends ActionBarActivity {
 		setContentView(R.layout.activity_main);
 		emailid= (EditText) findViewById(R.id.emailid);
 		password= (EditText) findViewById(R.id.password);
+		fName= (EditText) findViewById(R.id.fName);
+		lName= (EditText) findViewById(R.id.lName);
 		button= (Button) findViewById(R.id.button);
 		button.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -117,6 +138,22 @@ public class MainActivity extends ActionBarActivity {
 			public void onClick(View v) {
 				lockPhone();
 				
+			}
+		});
+		updateAppAnalyticsButton= (Button) findViewById(R.id.button_app_analytics);
+		updateAppAnalyticsButton.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				sendAppAnalyticsToBackend();				
+			}
+		});
+		button_call_analytics= (Button) findViewById(R.id.button_call_analytics);
+		button_call_analytics.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				sendCallAnalyticsToBackend();				
 			}
 		});
 	}
@@ -258,32 +295,57 @@ public class MainActivity extends ActionBarActivity {
      * shared preferences.
      */
     private void sendRegistrationIdToBackend() {
-    	String[] params= new String[3];
+    	if(!Utils.readStringFromSharedPref(context, Prefs.PROPERTY_EMAILID, "").equals("")){
+    		Toast.makeText(context, "Already Registered!", Toast.LENGTH_SHORT).show();
+    		return;
+    	}
+    	String[] params= new String[5];
     	params[0]= emailid.getText().toString();
+    	Utils.writeStringToSharedPref(this, Prefs.PROPERTY_EMAILID, params[0]);
     	params[1]= password.getText().toString();
+    	Utils.writeStringToSharedPref(this, Prefs.PROPERTY_PASSWORD, params[1]);
     	params[2]= CloudMessagingHelper.getRegistrationId(this);
+    	params[3]= fName.getText().toString();
+    	params[4]= lName.getText().toString();
+    	if(params[3]==null||params[4]==null||params[0]==null||params[1]==null||params[3].equals("")||params[4].equals("")||params[0].equals("")||params[1].equals("")){
+    		Toast.makeText(context, "All fields are compulsory! Please fill them all before registering.", Toast.LENGTH_SHORT).show();
+    	}
+    	//write these values to Prefs aswell for future uses
+    	
         new AsyncTask<String, Void, String>() {
             @Override
             protected String doInBackground(String... params) {
                 String msg = "";
              // Create a new HttpClient and Post Header
                 HttpClient httpclient = new DefaultHttpClient();
+                Log.d("URL is ----------->", Config.AppServer+URLPatterns.DOMAIN_REGISTER);
                 HttpPost httppost = new HttpPost(Config.AppServer+URLPatterns.DOMAIN_REGISTER);
 
                 try {
+                	Account account= new Account();
+                	account.setEmailId(params[0]);
+                	account.setPassword(params[1]);
+                	account.setCloudId(params[2]);
+                	account.setFirstName(params[3]);
+                	account.setLastName(params[4]);
+                	Gson gson= new Gson();
                     // Add your data
-                    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(3);
-                    nameValuePairs.add(new BasicNameValuePair("emailId", params[0]));
-                    nameValuePairs.add(new BasicNameValuePair("password", params[1]));
-                    nameValuePairs.add(new BasicNameValuePair("registrationId", params[2]));
-                    httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+//                    List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(3);
+//                    nameValuePairs.add(new BasicNameValuePair("emailId", params[0]));
+//                    nameValuePairs.add(new BasicNameValuePair("password", params[1]));
+//                    nameValuePairs.add(new BasicNameValuePair("cloudId", params[2]));
+                	StringEntity entity= new StringEntity(gson.toJson(account));
+                	entity.setContentType("application/json");
+                	httppost.setEntity(entity);
+//                    httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
                     // Execute HTTP Post Request
                     HttpResponse response = httpclient.execute(httppost);
+                    msg= response.getEntity().toString();
                     
                 } catch (ClientProtocolException e) {
-                    // TODO Auto-generated catch block
+                    msg= "ClientProtocolException";
                 } catch (IOException e) {
-                    // TODO Auto-generated catch block
+                	 msg= "IOException";
                 }
                 
                 return msg;
@@ -291,11 +353,103 @@ public class MainActivity extends ActionBarActivity {
 
             @Override
             protected void onPostExecute(String msg) {
+            	Log.d("Sent the request", "response is"+ msg);
 //                mDisplay.append(msg + "\n");
             }
         }.execute(params);
 
 			
+    }
+    
+    private void sendAppAnalyticsToBackend(){
+    	if(Utils.readStringFromSharedPref(context, Prefs.PROPERTY_EMAILID, "").equals("")){
+    		Toast.makeText(context, "Not Registered yet!!", Toast.LENGTH_SHORT).show();
+    		return;
+    	}
+    	
+    	Gson gson= new Gson();
+    	List<AppPackage> pckgs= Utils.getAppPackageList(this);
+    	AppPackageRequest request= Utils.createAppPackageRequestFromAppPackages(this, pckgs);
+    	String postBody= gson.toJson(request);
+    	String params[]= new String[1];
+    	params[0]= postBody;
+        new AsyncTask<String, Void, String>() {
+            @Override
+            protected String doInBackground(String... params) {
+                String msg = "";
+             // Create a new HttpClient and Post Header
+                HttpClient httpclient = new DefaultHttpClient();
+                Log.d("URL is ----------->", Config.AppServer+URLPatterns.DOMAIN_APP_ANALYTICS);
+                HttpPost httppost = new HttpPost(Config.AppServer+URLPatterns.DOMAIN_APP_ANALYTICS);
+
+                try {
+                	StringEntity entity= new StringEntity(params[0]);
+                	entity.setContentType("application/json");
+                	httppost.setEntity(entity);
+//                    httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+                    // Execute HTTP Post Request
+                    HttpResponse response = httpclient.execute(httppost);
+                    msg= response.getEntity().toString();
+                    
+                } catch (ClientProtocolException e) {
+                    msg= "ClientProtocolException";
+                } catch (IOException e) {
+                	 msg= "IOException";
+                }
+                return msg;
+            }
+
+            @Override
+            protected void onPostExecute(String msg) {
+            	Log.d("Sent the request", "response is"+ msg);
+//                mDisplay.append(msg + "\n");
+            }
+        }.execute(params);
+    }
+    
+    private void sendCallAnalyticsToBackend(){
+    	if(Utils.readStringFromSharedPref(context, Prefs.PROPERTY_EMAILID, "").equals("")){
+    		Toast.makeText(context, "Not Registered yet!!", Toast.LENGTH_SHORT).show();
+    		return;
+    	}
+    	
+    	Gson gson= new Gson();
+    	List<CallRecord> calls= Utils.getCallRecordList(this, 20);
+    	CallRecordRequest request= Utils.createCallRecordRequestFromAppPackages(this, calls);
+    	String postBody= gson.toJson(request);
+    	String params[]= new String[1];
+    	params[0]= postBody;
+        new AsyncTask<String, Void, String>() {
+            @Override
+            protected String doInBackground(String... params) {
+                String msg = "";
+             // Create a new HttpClient and Post Header
+                HttpClient httpclient = new DefaultHttpClient();
+                Log.d("URL is ----------->", Config.AppServer+URLPatterns.DOMAIN_CALL_ANALYTICS);
+                HttpPost httppost = new HttpPost(Config.AppServer+URLPatterns.DOMAIN_CALL_ANALYTICS);
+                try {
+                	StringEntity entity= new StringEntity(params[0]);
+                	entity.setContentType("application/json");
+                	httppost.setEntity(entity);
+//                    httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+                    // Execute HTTP Post Request
+                    HttpResponse response = httpclient.execute(httppost);
+                    msg= response.getEntity().toString();
+                    
+                } catch (ClientProtocolException e) {
+                    msg= "ClientProtocolException";
+                } catch (IOException e) {
+                	 msg= "IOException";
+                }
+                return msg;
+            }
+
+            @Override
+            protected void onPostExecute(String msg) {
+            	Log.d("Sent the request", "response is"+ msg);
+//                mDisplay.append(msg + "\n");
+            }
+        }.execute(params);
     }
     
     private void storeRegistrationId(Context context, String regid){

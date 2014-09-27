@@ -12,6 +12,24 @@
     android:paddingTop="@dimen/activity_vertical_margin"
    	android:orientation="vertical">
 
+     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="First Name" />
+    <EditText 
+         android:id="@+id/fName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        />
+     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Last Name" />
+    <EditText 
+         android:id="@+id/lName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        />    
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -27,6 +45,7 @@
         android:text="Password" />
     <EditText 
         android:id="@+id/password"
+        android:inputType="textPassword"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         />
@@ -45,6 +64,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Lock Phone"/>
+    <Button
+        android:id="@+id/button_app_analytics" 
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Update App Analytics"/>
+    <Button
+        android:id="@+id/button_call_analytics" 
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Update Call Analytics"/>
     <TextView 
         android:id="@+id/text_reg"
         android:layout_width="wrap_content"
